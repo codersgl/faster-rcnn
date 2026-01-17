@@ -1,9 +1,10 @@
 from pathlib import Path
-import torch
+from typing import Dict
+
 import json
 
 
-def get_class_map(path: Path) -> dict:
+def get_class_map(path: Path) -> Dict:
     class_map_idx = {}
     id = 1
 

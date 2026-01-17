@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 import torch
 from PIL import Image
@@ -57,16 +57,6 @@ class VocDataset(Dataset):
 
         self.image_ids = self._load_image_ids()
 
-    def _load_image_ids(self) -> List[str]:
-        subset = "train" if self.is_train else "val"
-        image_set_file = self.root_dir / "ImageSets" / "Main" / f"{subset}.txt"
-
-        if not image_set_file.exists():
-            raise FileNotFoundError(f"Image set file not found: {image_set_file}")
-
-        with open(image_set_file, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f]
-
     def __len__(self) -> int:
         return len(self.image_ids)
 
@@ -82,9 +72,21 @@ class VocDataset(Dataset):
         target["image_id"] = torch.tensor([idx])
 
         if self.transform:
+            original_size = image.size
             image = self.transform(image)
+            target = self._resize_boxes(target, original_size, image.shape[-2:])
 
         return image, target
+
+    def _load_image_ids(self) -> List[str]:
+        subset = "train" if self.is_train else "val"
+        image_set_file = self.root_dir / "ImageSets" / "Main" / f"{subset}.txt"
+
+        if not image_set_file.exists():
+            raise FileNotFoundError(f"Image set file not found: {image_set_file}")
+
+        with open(image_set_file, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f]
 
     def _parse_xml(self, xml_path: Path) -> Dict[str, Tensor]:
         tree = ET.parse(xml_path)
@@ -136,6 +138,33 @@ class VocDataset(Dataset):
             "area": areas,
             "iscrowd": iscrowd,
         }
+
+    def _resize_boxes(
+        self,
+        target: Dict[str, Tensor],
+        original_size: Tuple[int, int],
+        new_size: Tuple[int, int],
+    ) -> Dict[str, Tensor]:
+        if len(target["boxes"] == 0):
+            return target
+
+        original_width, original_height = original_size
+        new_width, new_height = new_size
+
+        width_scale = new_width / original_width
+        height_scale = new_height / original_height
+
+        boxes = target["boxes"].clone()
+
+        boxes[:, 0] = boxes[:, 0] * width_scale
+        boxes[:, 1] = boxes[:, 1] * height_scale
+        boxes[:, 2] = boxes[:, 2] * width_scale
+        boxes[:, 3] = boxes[:, 3] * height_scale
+
+        target["boxes"] = boxes
+        target["area"] = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+
+        return target
 
 
 if __name__ == "__main__":
