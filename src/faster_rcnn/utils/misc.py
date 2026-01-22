@@ -1,41 +1,50 @@
+import json
 from pathlib import Path
 from typing import Dict
 
-import json
+from loguru import logger
+
+# config log
+logger.add("logs/app.log", rotation="10 MB", retention="10 days")
 
 
-def get_class_map(path: Path) -> Dict:
-    class_map_idx = {}
-    id = 1
+def get_categories_save_to_json_file(dataset_path: Path) -> Dict:
+    """Get class names from a dataset and save them to a JSON file.
 
-    for file in path.iterdir():
-        if file.is_dir():
-            continue
-        if "_train" in file.name:
-            class_name, _ = file.name.split("_")
+    Args:
+        dataset_path (Path): Path to the dataset directory.
 
-            if class_name not in class_map_idx:
-                class_map_idx[class_name] = id
-                id += 1
+    Returns:
+        Dict: A dictionary mapping class names to their corresponding indices.
+    example:
+        dataset_path = Path("path/to/dataset")
+        get_categories_save_to_json_file(dataset_path)
+    """
 
-    with open(path.parent.parent / "class_to_idx.json", "w", encoding="utf-8") as f:
-        json.dump(class_map_idx, f)
+    save_json_path: Path = dataset_path / "categories.json"
+    categories: dict = {}
 
-    return class_map_idx
+    # Get class names from dataset/ImageSets/Main/*_train.txt, that * is one class name.
+    categories_dir = dataset_path / "ImageSets" / "Main"
+    for file in categories_dir.glob("*_train.txt"):
+        class_name = file.stem.split("_")[0]
+        if class_name not in categories:
+            categories[class_name] = len(categories)
 
+    # Sort class names by index
+    categories = dict(sorted(categories.items(), key=lambda item: item[1]))
 
-def train_one_epoch(model, train_dataloader, loss_fn, device="cpu"):
-    model.train()
-    model.to(device)
+    logger.info(f"Class names: {categories}")
 
-    for image, target in train_dataloader:
-        image = image.to(device)
-        labels = target["labels"].to(device)
-        boxes = target["boxes"].to(device)
-        output = model(image)
-        loss = loss_fn(output, [labels, boxes])
+    # Save class names to JSON file
+    with open(save_json_path, "w", encoding="utf-8") as f:
+        json.dump(categories, f)
+
+    return categories
 
 
 if __name__ == "__main__":
-    path = Path("data/raw/VOCdevkit2007/VOC2007/ImageSets/Main")
-    get_class_map(path)
+    # test get_categories_save_to_json_file
+    # dataset_path: data/raw/VOCdevkit2007/VOC2007
+    dataset_path = Path("data/raw/VOCdevkit2007/VOC2007")
+    get_categories_save_to_json_file(dataset_path)
