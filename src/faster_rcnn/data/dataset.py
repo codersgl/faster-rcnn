@@ -56,6 +56,8 @@ class PascalVOC(Dataset):
         )
         image = Image.open(image_path).convert("RGB")
 
+        original_width, original_height = image.size
+
         # Initialize target dictionary
         target = {}
         boxes, labels = self._parse_xml(
@@ -67,6 +69,10 @@ class PascalVOC(Dataset):
 
         if self.transform:
             image = self.transform(image)
+            width, height = image.size
+            target["boxes"] = target["boxes"] * torch.tensor(
+                [width, height, width, height], dtype=torch.float32
+            )
         else:
             image = torch.tensor(image, dtype=torch.float32)
 

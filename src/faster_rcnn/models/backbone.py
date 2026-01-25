@@ -1,27 +1,22 @@
-import torch
+"""Shared Convolutional Backbone: VGG-16: 13 convolutional layers (more commonly used)"""
+
 import torch.nn as nn
-import torchvision.models as models
-from torchinfo import summary
-from torchvision.models import VGG16_Weights
+from torchvision import models
 
 
-def built_backbone():
-    """
-    层选择：VGG16 的 13 个卷积层为共享部分，需剥离顶部全连接层（分类头），仅保留特征提取部分。
-    微调策略：论文中对 VGG16 仅微调 conv3_1 及以上层（节省内存），加载后可按此逻辑设置可训练参数。
-    """
-    vgg16 = models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
-    # 使用 Sequential 构造函数创建切片以避免类型检查器错误
-    shared_conv_layers = nn.Sequential(*list(vgg16.features.children())[:30])
+def vgg16_backbone():
+    """VGG-16 backbone"""
+    backbone = models.vgg16(pretrained=True).features
+    shared_backbone = nn.Sequential(*list(backbone.children())[:-1])
 
-    # 根据论文，冻结前6层（conv1_1到pool2），从第7层（conv3_1）开始微调
-    for param in shared_conv_layers[:6].parameters():
-        param.requires_grad = False
+    # Freeze first 10 conv layers (conv1_1 through conv4_3)
+    # These are the convolutional layers at indices: 0, 2, 5, 7, 10, 12, 14, 17, 19, 21
+    conv_indices_to_freeze = [0, 2, 5, 7, 10, 12, 14, 17, 19, 21]
 
-    return shared_conv_layers
+    for idx in conv_indices_to_freeze:
+        layer = shared_backbone[idx]
+        if isinstance(layer, nn.Conv2d):
+            for param in layer.parameters():
+                param.requires_grad = False
 
-
-if __name__ == "__main__":
-    backbone = built_backbone()
-    x = torch.randn(1, 3, 224, 224)
-    summary(backbone, input_size=(1, 3, 224, 224))
+    return shared_backbone
