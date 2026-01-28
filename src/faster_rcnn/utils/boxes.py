@@ -106,8 +106,8 @@ def box_iou(boxes1: torch.types.Tensor, boxes2: torch.types.Tensor):
     """
     assert boxes1.device == boxes2.device, "Must be in same device"
 
-    area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[1])  # [N,]
-    area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[1])  # [M,]
+    area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])  # [N,]
+    area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])  # [M,]
 
     lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N, M, 2]
     rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])  # [N, M, 2]
