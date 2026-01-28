@@ -14,6 +14,7 @@ dependencies = [
     "torch>=2.9.1",
     "torchinfo>=1.8.0",
     "torchvision>=0.24.1",
+    "tqdm>=4.67.1",
 ]
 
 [[tool.uv.index]]
