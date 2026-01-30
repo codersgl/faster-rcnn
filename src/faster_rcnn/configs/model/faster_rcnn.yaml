@@ -1,0 +1,29 @@
+name: "faster_rcnn"
+backbone: "vgg16"
+pretrained: true
+num_classes: 20 # Will be overridden by data.num_classes
+
+# RPN Configuration
+rpn:
+    anchor_sizes: [128, 256, 512]
+    aspect_ratios: [0.5, 1.0, 2.0]
+    nms_thresh: 0.7
+    pre_nms_top_n_train: 2000
+    post_nms_top_n_train: 2000
+    pre_nms_top_n_test: 1000
+    post_nms_top_n_test: 1000
+    fg_iou_thresh: 0.7
+    bg_iou_thresh: 0.3
+    batch_size_per_image: 256
+    positive_fraction: 0.5
+
+# ROI Head Configuration
+roi_head:
+    score_thresh: 0.05
+    nms_thresh: 0.5
+    detections_per_img: 100
+    fg_iou_thresh: 0.5
+    bg_iou_thresh: 0.5
+    batch_size_per_image: 128
+    positive_fraction: 0.25
+    pooled_size: 7

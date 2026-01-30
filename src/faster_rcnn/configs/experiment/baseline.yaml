@@ -1,0 +1,20 @@
+# configs/experiment/baseline.yaml
+defaults:
+    - /model/resnet
+    - /data/cifar10
+    - /training/default
+    - _self_
+
+# Override specific values
+training:
+    epochs: 50
+    learning_rate: 0.01
+
+model:
+    pretrained: false
+
+data:
+    augmentation:
+        train:
+            random_rotation: true
+            rotation_degrees: 15

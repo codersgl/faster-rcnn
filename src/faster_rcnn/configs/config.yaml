@@ -1,0 +1,30 @@
+defaults:
+    - model: faster_rcnn
+    - data: PascalVOC2007
+    - training: default
+    - _self_
+
+# Global settings
+project:
+    name: "deep_learning_project"
+    version: "1.0.0"
+    seed: 42
+
+# Environment
+environment:
+    device: "cuda"
+    num_workers: 4
+    mixed_precision: true
+
+# Logging
+logging:
+    wandb: true
+    tensorboard: true
+    log_dir: "./logs"
+
+# Hydra configuration
+hydra:
+    run:
+        # Output directory for training runs
+        # You can override this via command line: python scripts/train.py hydra.run.dir=path/to/dir
+        dir: runs/${now:%Y-%m-%d}_${now:%H-%M-%S}

@@ -1,0 +1,31 @@
+epochs: 20
+batch_size: 1 # Faster R-CNN typically uses small batch size or accumulates gradients
+
+# Optimizer
+optimizer:
+    name: "sgd"
+    lr: 0.005 # 1e-3 is common for Faster R-CNN finetuning
+    momentum: 0.9
+    weight_decay: 0.0005
+
+# Scheduler
+scheduler:
+    name: "multistep"
+    milestones: [16, 22] # Decaying at later epochs
+    gamma: 0.1
+
+# Loss weights
+loss:
+    lambda_rpn_cls: 1.0
+    lambda_rpn_reg: 1.0
+    lambda_fast_rcnn_cls: 1.0
+    lambda_fast_rcnn_reg: 1.0
+
+# Gradient Clipping
+grad_clip: 10.0
+
+# Checkpointing and Logging
+save_interval: 1
+log_interval: 50
+val_interval: 1
+output_dir: "outputs"

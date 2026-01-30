@@ -1,0 +1,28 @@
+name: "PascalVOC2007"
+root_dir: "data/raw/VOCdevkit2007/VOC2007"
+num_classes: 20
+class_names:
+    - "aeroplane"
+    - "bicycle"
+    - "bird"
+    - "boat"
+    - "bottle"
+    - "bus"
+    - "car"
+    - "cat"
+    - "chair"
+    - "cow"
+    - "diningtable"
+    - "dog"
+    - "horse"
+    - "motorbike"
+    - "person"
+    - "pottedplant"
+    - "sheep"
+    - "sofa"
+    - "train"
+    - "tvmonitor"
+
+# ImageNet Mean/Std (since we use pretrained VGG)
+mean: [0.485, 0.456, 0.406]
+std: [0.229, 0.224, 0.225]
