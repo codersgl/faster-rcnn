@@ -58,6 +58,12 @@ def decode_boxes(encoded_boxes, anchor_boxes, eps=1e-6):
         f"Shape mismatch: {encoded_boxes.shape} vs {anchor_boxes.shape}"
     )
 
+    # Ensure inputs are finite
+    if not torch.isfinite(encoded_boxes).all():
+        encoded_boxes = torch.nan_to_num(encoded_boxes, nan=0.0, posinf=0.0, neginf=0.0)
+    if not torch.isfinite(anchor_boxes).all():
+        anchor_boxes = torch.nan_to_num(anchor_boxes, nan=0.0, posinf=0.0, neginf=0.0)
+
     if encoded_boxes.dim() == 2:
         t_x = encoded_boxes[:, 0]
         t_y = encoded_boxes[:, 1]
@@ -79,8 +85,15 @@ def decode_boxes(encoded_boxes, anchor_boxes, eps=1e-6):
     # y_center = t_y * anchor_h + anchor_y_center
     # w = exp(t_w) * anchor_w
     # h = exp(t_h) * anchor_h
+    # Prevent gradient explosion/NaN by clamping scaling factors
+    t_x = torch.clamp(t_x, min=-10.0, max=10.0)
+    t_y = torch.clamp(t_y, min=-10.0, max=10.0)
+    t_w = torch.clamp(t_w, min=-10.0, max=10.0)
+    t_h = torch.clamp(t_h, min=-10.0, max=10.0)
+
     x_center = t_x * anchor_w + anchor_x_center
     y_center = t_y * anchor_h + anchor_y_center
+
     w = torch.exp(t_w) * anchor_w
     h = torch.exp(t_h) * anchor_h
 
@@ -90,9 +103,11 @@ def decode_boxes(encoded_boxes, anchor_boxes, eps=1e-6):
     y2 = y_center + h / 2.0
 
     if encoded_boxes.dim() == 2:
-        return torch.stack([x1, y1, x2, y2], dim=1)
+        decoded = torch.stack([x1, y1, x2, y2], dim=1)
     else:
-        return torch.stack([x1, y1, x2, y2], dim=-1)
+        decoded = torch.stack([x1, y1, x2, y2], dim=-1)
+
+    return torch.nan_to_num(decoded, nan=0.0, posinf=100000.0, neginf=-100000.0)
 
 
 def box_iou(boxes1: torch.types.Tensor, boxes2: torch.types.Tensor):
@@ -110,7 +125,7 @@ def box_iou(boxes1: torch.types.Tensor, boxes2: torch.types.Tensor):
     area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])  # [M,]
 
     lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N, M, 2]
-    rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])  # [N, M, 2]
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N, M, 2]
 
     wh = (rb - lt).clamp(min=0)  # [N, M, 2]
     inter = wh[:, :, 0] * wh[:, :, 1]  # [N, M,]
