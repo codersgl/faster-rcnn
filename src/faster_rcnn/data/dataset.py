@@ -17,6 +17,7 @@ class PascalVOC(Dataset):
         root_dir: Union[str, Path],
         train: bool,
         transform: Optional[Callable] = None,
+        class_names: Optional[List[str]] = None,
     ):
         """
         Initialize the PascalVOC dataset.
@@ -25,6 +26,7 @@ class PascalVOC(Dataset):
             root_dir: Root directory of the dataset.
             train: Whether to load the training or validation set.
             transform: Optional transform to be applied on the image.
+            class_names: List of class names (excluding background).
         """
         self.root_dir = Path(root_dir) if isinstance(root_dir, str) else root_dir
         self.transform = transform
@@ -33,16 +35,59 @@ class PascalVOC(Dataset):
         if not self.root_dir.exists():
             raise FileNotFoundError(f"Dataset directory not found: {self.root_dir}")
 
-        # Load class names from JSON file
-        class_names_path = self.root_dir / "class_names.json"
-        if not class_names_path.exists():
-            raise FileNotFoundError(f"Class names file not found: {class_names_path}")
-
-        with open(class_names_path, "r", encoding="utf-8") as f:
-            self.class_names = json.load(f)
-
-        # 创建从类别名到索引的映射
-        self.class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+        if class_names:
+            # Explicitly provided class names
+            # Add background at index 0
+            self.class_names = ["__background__"] + list(class_names)
+            self.class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+        else:
+            # Fallback: Load class names from JSON file if exists
+            class_names_path = self.root_dir / "class_names.json"
+            if class_names_path.exists():
+                with open(class_names_path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    # If loaded is dict, assume it's name->idx mapping
+                    if isinstance(loaded, dict):
+                        self.class_to_idx = loaded
+                        # Reconstruct sorted list by index
+                        self.class_names = [
+                            k
+                            for k, v in sorted(loaded.items(), key=lambda item: item[1])
+                        ]
+                    else:
+                        # Assume list
+                        self.class_names = loaded
+                        self.class_to_idx = {
+                            name: idx for idx, name in enumerate(self.class_names)
+                        }
+            else:
+                # Last resort: Standard VOC 20 classes
+                voc_classes = [
+                    "aeroplane",
+                    "bicycle",
+                    "bird",
+                    "boat",
+                    "bottle",
+                    "bus",
+                    "car",
+                    "cat",
+                    "chair",
+                    "cow",
+                    "diningtable",
+                    "dog",
+                    "horse",
+                    "motorbike",
+                    "person",
+                    "pottedplant",
+                    "sheep",
+                    "sofa",
+                    "train",
+                    "tvmonitor",
+                ]
+                self.class_names = ["__background__"] + voc_classes
+                self.class_to_idx = {
+                    name: idx for idx, name in enumerate(self.class_names)
+                }
 
         # Load image paths from text file
         text_file = (
@@ -204,10 +249,10 @@ class PascalVOC(Dataset):
                     continue
 
                 try:
-                    xmin = float(bbox.find("xmin").text)  # type: ignore
-                    ymin = float(bbox.find("ymin").text)  # type: ignore
-                    xmax = float(bbox.find("xmax").text)  # type: ignore
-                    ymax = float(bbox.find("ymax").text)  # type: ignore
+                    xmin = float(bbox.find("xmin").text) - 1  # type: ignore
+                    ymin = float(bbox.find("ymin").text) - 1  # type: ignore
+                    xmax = float(bbox.find("xmax").text) - 1  # type: ignore
+                    ymax = float(bbox.find("ymax").text) - 1  # type: ignore
 
                     if xmin >= xmax or ymin >= ymax:
                         print(
