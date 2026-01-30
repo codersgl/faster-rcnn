@@ -5,12 +5,10 @@ from typing import Dict, Tuple
 import torch
 from loguru import logger
 
-from faster_rcnn.utils.boxes import box_iou
+from faster_rcnn.utils.boxes import box_iou, encode_boxes
 
 # config log
 logger.add("logs/app.log", rotation="10 MB", retention="10 days")
-
-
 def get_categories_save_to_json_file(dataset_path: Path) -> Dict:
     """Get class names from a dataset and save them to a JSON file.
 
@@ -154,6 +152,97 @@ def assign_rpn_targets(
         reg_targets[pos_indices, 3] = th
 
     return labels, reg_targets
+
+
+def assign_targets_to_proposals(
+    proposals: torch.Tensor,
+    gt_boxes: torch.Tensor,
+    gt_labels: torch.Tensor,
+    device: torch.device,
+    pos_iou_thresh: float = 0.5,
+    neg_iou_thresh_hi: float = 0.5,
+    neg_iou_thresh_lo: float = 0.0,
+    batch_size_per_image: int = 128,
+    positive_fraction: float = 0.25,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    为Fast R-CNN分配目标并进行采样 (Sampling)
+
+    Args:
+        proposals: [N, 4] (N usually 2000)
+        gt_boxes: [M, 4]
+        gt_labels: [M] (真实类别, >0)
+        device: device
+        pos_iou_thresh: 正样本IoU阈值
+        neg_iou_thresh_hi: 负样本IoU阈值上限
+        neg_iou_thresh_lo: 负样本IoU阈值下限
+        batch_size_per_image: 每张图片采样的RoI数量
+        positive_fraction: 正样本比例
+
+    Returns:
+        sampled_proposals: [batch_size_per_image, 4]
+        sampled_labels: [batch_size_per_image] (0为背景)
+        sampled_reg_targets: [batch_size_per_image, 4]
+    """
+    # 1. 计算IoU
+    iou_matrix = box_iou(proposals, gt_boxes)  # [N, M]
+
+    # 2. 每个proposal的最佳匹配GT
+    max_iou_per_proposal, gt_idx_per_proposal = iou_matrix.max(dim=1)  # [N]
+
+    # 3. 初始化标签 (0: Background)
+    labels = torch.zeros(proposals.shape[0], dtype=torch.long, device=device)
+
+    # 4. 正样本: IoU >= 0.5
+    pos_mask = max_iou_per_proposal >= pos_iou_thresh
+    labels[pos_mask] = gt_labels[gt_idx_per_proposal[pos_mask]]
+
+    # 5. 负样本: lo <= IoU < hi (labels already 0)
+    # 忽略那些 IoU < lo 的样本 (设为 -1)
+    # neg_mask = (max_iou_per_proposal >= neg_iou_thresh_lo) & (max_iou_per_proposal < neg_iou_thresh_hi)
+    # 但通常我们将所有非正样本视为负样本候选，然后在采样时控制
+
+    # 6. 采样
+    num_pos = int(batch_size_per_image * positive_fraction)
+    pos_indices = torch.where(pos_mask)[0]
+
+    if len(pos_indices) > num_pos:
+        # 随机丢弃多余的正样本
+        # shuffle and pick num_pos
+        keep_pos_indices = pos_indices[
+            torch.randperm(len(pos_indices), device=device)[:num_pos]
+        ]
+    else:
+        keep_pos_indices = pos_indices
+
+    # 负样本采样
+    num_neg = batch_size_per_image - len(keep_pos_indices)
+    neg_mask = (max_iou_per_proposal >= neg_iou_thresh_lo) & (
+        max_iou_per_proposal < neg_iou_thresh_hi
+    )
+    neg_indices = torch.where(neg_mask)[0]
+
+    if len(neg_indices) > num_neg:
+        keep_neg_indices = neg_indices[
+            torch.randperm(len(neg_indices), device=device)[:num_neg]
+        ]
+    else:
+        # 如果负样本不够，可能会导致总数少于128，这通常是可以接受的
+        keep_neg_indices = neg_indices
+
+    # 合并索引
+    keep_indices = torch.cat([keep_pos_indices, keep_neg_indices])
+
+    # 提取采样后的数据
+    sampled_proposals = proposals[keep_indices]
+    sampled_labels = labels[keep_indices]
+
+    # 计算回归目标 (仅针对正样本，负样本为0或忽略)
+    # 编码: (gt - proposal) / proposal_size
+    matched_gt_boxes = gt_boxes[gt_idx_per_proposal[keep_indices]]
+    sampled_reg_targets = encode_boxes(matched_gt_boxes, sampled_proposals)
+
+    return sampled_proposals, sampled_labels, sampled_reg_targets
 
 
 if __name__ == "__main__":
