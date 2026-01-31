@@ -13,11 +13,7 @@ A PyTorch implementation of Faster R-CNN for object detection on PASCAL VOC 2007
 
 ### Installation
 
-```bash
-pip install -r requirements.txt
-```
-
-or if you installed uv.
+if you installed uv.
 
 ```
 uv init
