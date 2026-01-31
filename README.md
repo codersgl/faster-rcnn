@@ -1,134 +1,101 @@
-# Faster R-CNN Reproduction
+# Faster R-CNN Implementation in PyTorch
 
-This repository contains a PyTorch reproduction of **Faster R-CNN** (Region Proposal Network + Fast R-CNN) for object detection, specifically tailored for the PASCAL VOC 2007 dataset.
+A PyTorch implementation of Faster R-CNN for object detection on PASCAL VOC 2007 dataset. This repository provides a complete training pipeline with modern tooling for experiment management and visualization.
 
 ## Features
 
-- **End-to-End Training**: Complete pipeline for training RPN and Fast R-CNN detector simultaneously.
-- **Hydra Configuration**: Flexible and hierarchical experiment configuration management.
-- **TensorBoard Integration**: Real-time logging of losses, learning rates, mAP scores, and **predicted bounding box visualizations**.
-- **Modular Architecture**: Clean separation of data loading, model components, training engine, and utilities.
+- End-to-end training of Region Proposal Network (RPN) and Fast R-CNN detector
+- Hydra configuration system for flexible experiment management
+- Real-time logging with TensorBoard (losses, metrics, bounding box visualizations)
+- Modular architecture for easy extension and debugging
 
-## Project Structure
+## Quick Start
 
-```
-.
-├── src/faster_rcnn/
-│   ├── configs/        # Hydra configuration files (model, data, training)
-│   ├── data/           # Dataset wrappers, transforms, and collate functions
-│   ├── engine/         # Training logic and epoch loops
-│   ├── models/         # Model components (Backbone, RPN, ROI Heads)
-│   └── utils/          # Metrics (mAP), visualization, box ops, losses
-├── scripts/
-│   ├── train.py        # Main training entry point
-│   └── val.py          # Standalone validation/evaluation entry point
-└── runs/               # Default output directory for experiments (managed by Hydra)
-```
-
-## Dataset
-
-This project is configured for the **PASCAL VOC 2007** dataset.
-
-1.  **Download** the VOC2007 Train/Val and Test data.
-2.  **Extract** them. The structure should look like:
-    ```
-    /path/to/VOCdevkit/
-    └── VOC2007/
-        ├── Annotations/
-        ├── JPEGImages/
-        ├── ImageSets/
-        └── ...
-    ```
-3.  **Configure**: You can either edit `src/faster_rcnn/configs/data/PascalVOC2007.yaml` or pass the path via command line arguments (see Usage below).
-
-## Usage
-
-### 1. Training
-
-To start training with the default configuration:
+### Installation
 
 ```bash
-python scripts/train.py
+pip install -r requirements.txt
 ```
 
-To specify the dataset root directory explicitly:
+or if you installed uv.
+
+```
+uv init
+uv sync
+```
+
+### Dataset Setup
+
+Download and extract PASCAL VOC 2007 dataset:
+
+```bash
+# Example structure after extraction
+/path/to/VOCdevkit/
+└── VOC2007/
+    ├── Annotations/
+    ├── JPEGImages/
+    └── ImageSets/
+```
+
+### Training
 
 ```bash
 python scripts/train.py data.root_dir=/path/to/VOCdevkit
 ```
 
-To run an experiment with a specific output directory (recommended for organizing runs):
-
+or if you installed uv,
 ```bash
-python scripts/train.py hydra.run.dir=experiments/exp_vgg16_run1
+uv run scripts/train.py data.root_dir=/path/to/VOCdevkit
 ```
 
-**What happens during training?**
-*   The script initializes the model (VGG16 backbone by default).
-*   Logs are written to the output directory (default: `runs/YYYY-MM-DD_HH-MM-SS`).
-*   TensorBoard logs are saved to the same directory.
-*   Validation runs periodically (controlled by `training.val_interval`), calculating mAP and saving the best model.
-*   **Sample predictions** (images with bounding boxes) are logged to TensorBoard during validation.
-
-### 2. Visualization (TensorBoard)
-
-To view training progress, losses, and visualized predictions:
+### Monitoring
 
 ```bash
 tensorboard --logdir runs/
-# or pointing to your specific experiment folder
-tensorboard --logdir experiments/
 ```
 
-Navigate to the **IMAGES** tab in TensorBoard to see how the model performs on validation data during training.
+## Project Structure
 
-### 3. Evaluation
-
-To evaluate a saved checkpoint on the validation set:
-
-```bash
-python scripts/val.py +checkpoint=path/to/model_epoch_10.pth
+```
+src/faster_rcnn/
+├── configs/          # Hydra configuration files
+├── data/             # Dataset loaders and transforms
+├── engine/           # Training and validation loops
+├── models/           # Backbone, RPN, ROI heads
+└── utils/            # Metrics, visualization, utilities
 ```
 
 ## Configuration
 
-The project uses [Hydra](https://hydra.cc/) for configuration. The main config file is `src/faster_rcnn/configs/config.yaml`.
+The project uses Hydra for hierarchical configuration. Key parameters can be overridden via command line:
 
-Key overrides examples:
+```bash
+# Example overrides
+python scripts/train.py training.batch_size=8 training.optimizer.lr=0.001
+```
 
-*   **Batch Size**: `training.batch_size=8`
-*   **Learning Rate**: `training.optimizer.lr=0.001`
-*   **Epochs**: `training.epochs=20`
-*   **Device**: `environment.device=cpu` (default is cuda)
+## Evaluation
 
-## Project Status
+Evaluate a trained model:
 
-- [x] **Data Loading**
-    - [x] VOCDataset implementation
-    - [x] Robust XML parsing & class indexing
-    - [x] Data augmentation & transforms
-- [x] **Model Architecture**
-    - [x] VGG16 Backbone
-    - [x] Region Proposal Network (RPN)
-    - [x] ROI Pooling & Heads
-    - [x] Prediction/Inference logic (`predict` method)
-- [x] **Training Engine**
-    - [x] RPN Loss (Cls + Reg) & R-CNN Loss (Cls + Reg)
-    - [x] Optimizer & Scheduler setup
-    - [x] TensorBoard integration
-- [x] **Tools**
-    - [x] mAP Calculation (VOC metric)
-    - [x] Visualization utilities (drawing boxes, denormalization)
-    - [x] Checkpoint saving/loading
+```bash
+python scripts/val.py +checkpoint=path/to/model.pth
+```
 
 ## Requirements
 
-*   Python 3.8+
-*   PyTorch
-*   Torchvision
-*   Hydra-core
-*   OpenCV
-*   TensorBoard
-*   Matplotlib
-*   Loguru
-*   Tqdm
+- Python 3.8+
+- PyTorch 1.9+
+- torchvision
+- hydra-core
+- tensorboard
+- opencv-python
+- matplotlib
+- loguru
+- tqdm
+
+## References
+
+1. Ren, S., He, K., Girshick, R., & Sun, J. (2015). Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks. _Advances in Neural Information Processing Systems_, 28.
+
+2. Everingham, M., Van Gool, L., Williams, C. K. I., Winn, J., & Zisserman, A. (2010). The Pascal Visual Object Classes (VOC) Challenge. _International Journal of Computer Vision_, 88(2), 303-338.
